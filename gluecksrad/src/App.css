@@ -404,3 +404,28 @@ button.sound-toggle {
   font-size: 0.95rem;
   padding: 6px 14px;
 }
+
+.message.warning {
+  color: var(--danger);
+}
+
+.edit-form {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px;
+}
+
+.edit-form input {
+  width: auto;
+  min-width: 160px;
+  flex: 1;
+  padding: 4px 8px;
+}
+
+.edit-error {
+  flex-basis: 100%;
+  color: var(--danger);
+  font-size: 0.85rem;
+  white-space: normal;
+}

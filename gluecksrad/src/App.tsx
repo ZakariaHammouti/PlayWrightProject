@@ -12,6 +12,16 @@ import './App.css'
 const SPIN_MS = 4500
 const REDUCED_SPIN_MS = 300
 
+/** Name bereinigen: Leerzeichen am Rand entfernen, mehrfache Leerzeichen zusammenfassen */
+function cleanName(raw: string): string {
+  return raw.normalize('NFC').replace(/\s+/g, ' ').trim()
+}
+
+/** Vergleichsschlüssel für Duplikate: bereinigt und ohne Groß-/Kleinschreibung */
+function nameKey(name: string): string {
+  return cleanName(name).toLocaleLowerCase('de-DE')
+}
+
 function newId(): string {
   return crypto.randomUUID()
 }
@@ -47,6 +57,10 @@ export default function App() {
   const [singleName, setSingleName] = useState('')
   const [bulkText, setBulkText] = useState('')
   const [message, setMessage] = useState('')
+  const [messageIsWarning, setMessageIsWarning] = useState(false)
+  const [editingId, setEditingId] = useState<string | null>(null)
+  const [editValue, setEditValue] = useState('')
+  const [editError, setEditError] = useState('')
   const spinTimer = useRef<number | undefined>(undefined)
 
   // Speichern bei jeder Änderung
@@ -67,35 +81,51 @@ export default function App() {
 
   const available = useMemo(() => persons.filter((p) => !isLocked(p, now)), [persons, now])
 
-  function addNames(names: string[]): { added: number; skipped: number } {
-    const existing = new Set(persons.map((p) => p.name.toLowerCase()))
+  interface AddResult {
+    added: number
+    duplicates: string[]
+  }
+
+  function addNames(names: string[]): AddResult {
+    const existing = new Set(persons.map((p) => nameKey(p.name)))
     const toAdd: Person[] = []
-    let skipped = 0
+    const duplicates: string[] = []
     for (const raw of names) {
-      const name = raw.trim()
+      const name = cleanName(raw)
       if (!name) continue
-      const key = name.toLowerCase()
+      const key = nameKey(name)
       if (existing.has(key)) {
-        skipped++
+        duplicates.push(name)
         continue
       }
       existing.add(key)
       toAdd.push({ id: newId(), name, drawCount: 0, lastDrawnAt: null, lockedUntil: null })
     }
     if (toAdd.length) setPersons((prev) => [...prev, ...toAdd])
-    return { added: toAdd.length, skipped }
+    return { added: toAdd.length, duplicates }
   }
 
-  function report({ added, skipped }: { added: number; skipped: number }) {
-    const parts = [`${added} Name${added === 1 ? '' : 'n'} hinzugefügt`]
-    if (skipped) parts.push(`${skipped} doppelt und übersprungen`)
-    setMessage(parts.join(', ') + '.')
+  function report({ added, duplicates }: AddResult) {
+    const parts: string[] = []
+    if (added) parts.push(`${added} Name${added === 1 ? '' : 'n'} hinzugefügt.`)
+    if (duplicates.length) {
+      const list = duplicates.map((d) => `„${d}“`).join(', ')
+      parts.push(
+        duplicates.length === 1
+          ? `${list} ist schon vorhanden und wurde nicht hinzugefügt.`
+          : `Schon vorhanden und nicht hinzugefügt: ${list}.`,
+      )
+    }
+    setMessage(parts.join(' '))
+    setMessageIsWarning(duplicates.length > 0)
   }
 
   function onAddSingle(e: FormEvent) {
     e.preventDefault()
-    report(addNames([singleName]))
-    setSingleName('')
+    const result = addNames([singleName])
+    report(result)
+    // Bei einem Duplikat bleibt der Name im Feld stehen, damit man ihn korrigieren kann
+    if (result.added) setSingleName('')
   }
 
   function onAddBulk(e: FormEvent) {
@@ -117,11 +147,43 @@ export default function App() {
     setMessage('')
   }
 
+  function startEdit(p: Person) {
+    setEditingId(p.id)
+    setEditValue(p.name)
+    setEditError('')
+  }
+
+  function cancelEdit() {
+    setEditingId(null)
+    setEditError('')
+  }
+
+  function saveEdit(e: FormEvent) {
+    e.preventDefault()
+    if (!editingId) return
+    const name = cleanName(editValue)
+    if (!name) {
+      setEditError('Der Name darf nicht leer sein.')
+      return
+    }
+    const key = nameKey(name)
+    const clash = persons.find((p) => p.id !== editingId && nameKey(p.name) === key)
+    if (clash) {
+      setEditError(`„${clash.name}“ ist schon vorhanden.`)
+      return
+    }
+    setPersons((prev) => prev.map((x) => (x.id === editingId ? { ...x, name } : x)))
+    if (winner?.id === editingId) setWinner({ ...winner, name })
+    setEditingId(null)
+    setEditError('')
+  }
+
   function unlock(p: Person) {
     setPersons((prev) => prev.map((x) => (x.id === p.id ? { ...x, lockedUntil: null } : x)))
   }
 
   function spin() {
+    setEditingId(null)
     const current = Date.now()
     setNow(current)
     const pool = persons.filter((p) => !isLocked(p, current))
@@ -252,7 +314,11 @@ export default function App() {
               Liste übernehmen
             </button>
           </form>
-          {message && <p className="message">{message}</p>}
+          {message && (
+            <p className={messageIsWarning ? 'message warning' : 'message'} role="status">
+              {message}
+            </p>
+          )}
         </section>
 
         <section className="card stats-card">
@@ -283,7 +349,35 @@ export default function App() {
                     const locked = isLocked(p, now)
                     return (
                       <tr key={p.id}>
-                        <td>{p.name}</td>
+                        <td className="name-cell">
+                          {editingId === p.id ? (
+                            <form className="edit-form" onSubmit={saveEdit}>
+                              <input
+                                type="text"
+                                value={editValue}
+                                onChange={(e) => {
+                                  setEditValue(e.target.value)
+                                  setEditError('')
+                                }}
+                                onKeyDown={(e) => {
+                                  if (e.key === 'Escape') cancelEdit()
+                                }}
+                                aria-label={`Neuer Name für ${p.name}`}
+                                aria-invalid={editError ? true : undefined}
+                                autoFocus
+                              />
+                              <button type="submit" className="subtle">
+                                Speichern
+                              </button>
+                              <button type="button" className="subtle" onClick={cancelEdit}>
+                                Abbrechen
+                              </button>
+                              {editError && <span className="edit-error">{editError}</span>}
+                            </form>
+                          ) : (
+                            p.name
+                          )}
+                        </td>
                         <td className="num">{p.drawCount}</td>
                         <td>{formatDate(p.lastDrawnAt)}</td>
                         <td>
@@ -297,6 +391,11 @@ export default function App() {
                           {locked && (
                             <button className="subtle" onClick={() => unlock(p)} disabled={spinning}>
                               Sperre aufheben
+                            </button>
+                          )}
+                          {editingId !== p.id && (
+                            <button className="subtle" onClick={() => startEdit(p)} disabled={spinning}>
+                              Bearbeiten
                             </button>
                           )}
                           <button className="danger subtle" onClick={() => removePerson(p)} disabled={spinning}>

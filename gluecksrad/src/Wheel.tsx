@@ -1,11 +1,8 @@
 import type { Person } from './types'
 import { isLocked } from './types'
+import { segmentColor } from './colors'
 
-const COLORS = [
-  '#e6194b', '#3cb44b', '#4363d8', '#f58231',
-  '#911eb4', '#0f9db5', '#d4a017', '#c2185b',
-]
-const LOCKED_COLOR = '#b8bcc4'
+const EMPTY_COLOR = '#b8bcc4'
 const RADIUS = 100
 
 interface WheelProps {
@@ -53,24 +50,33 @@ export function Wheel({ persons, now, rotation, durationMs }: WheelProps) {
             transition: `transform ${durationMs}ms cubic-bezier(0.17, 0.67, 0.12, 0.99)`,
           }}
         >
-          {n === 0 && <circle r={RADIUS} fill={LOCKED_COLOR} />}
+          <circle r={RADIUS} fill={n === 0 ? EMPTY_COLOR : '#ffffff'} />
           {persons.map((p, i) => {
             const locked = isLocked(p, now)
-            const fill = locked ? LOCKED_COLOR : COLORS[i % COLORS.length]
+            // Jede Person behält ihre eigene Farbe; gesperrte werden nur blass dargestellt
+            const color = segmentColor(i)
+            const fill = color.fill
+            const opacity = locked ? 0.28 : 1
             const center = (i + 0.5) * seg
             return (
               <g key={p.id}>
                 {n === 1 ? (
-                  <circle r={RADIUS} fill={fill} />
+                  <circle r={RADIUS} fill={fill} fillOpacity={opacity} />
                 ) : (
-                  <path d={segmentPath(i * seg, (i + 1) * seg)} fill={fill} stroke="#fff" strokeWidth={0.6} />
+                  <path
+                    d={segmentPath(i * seg, (i + 1) * seg)}
+                    fill={fill}
+                    fillOpacity={opacity}
+                    stroke="#fff"
+                    strokeWidth={0.6}
+                  />
                 )}
                 <text
                   transform={`rotate(${center - 90}) translate(${RADIUS - 8} 0)`}
                   textAnchor="end"
                   dominantBaseline="middle"
                   fontSize={fontSize}
-                  fill={locked ? '#555' : '#fff'}
+                  fill={locked ? '#555' : color.text}
                   fontWeight={600}
                 >
                   {shorten(p.name, maxChars)}
