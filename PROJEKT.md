@@ -27,7 +27,7 @@ Werden nicht gebraucht.
 ## 6. Verhalten nach dem Ziehen
 - Die gezogene Person wird für **24 Stunden gesperrt** und ist danach automatisch wieder im Rad.
 - Eine Sperre kann **manuell aufgehoben** werden.
-- Sind **alle Personen gesperrt**, lässt sich das Rad nicht drehen und es erscheint ein Hinweis.
+- Gedreht werden kann nur, wenn **mindestens 2 Personen verfügbar** sind, sonst stünde das Ergebnis fest. Ist nur noch eine oder keine Person verfügbar, lässt sich das Rad nicht drehen und es erscheint ein Hinweis.
 
 ## 7. Datenspeicherung
 Im **localStorage** des Browsers: Namen, Statistik und Sperrzeitpunkte. Es gibt keinen Server und keine Datenbank.
@@ -37,7 +37,7 @@ Im **localStorage** des Browsers: Namen, Statistik und Sperrzeitpunkte. Es gibt 
 - Build-Tool: **Vite**
 
 ## 9. Tests
-Vorerst **keine Playwright-Tests**.
+Automatische End-to-End-Tests mit **Playwright Test** (Chromium), siehe `gluecksrad/tests/`.
 
 ## 10. Design / Aussehen
 Keine besonderen Wünsche: schlichtes, übersichtliches Design mit farbigen Segmenten und kurzer Dreh-Animation.

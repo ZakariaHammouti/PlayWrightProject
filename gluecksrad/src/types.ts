@@ -12,6 +12,9 @@ export interface Person {
 /** Dauer der Sperre nach einer Ziehung: 24 Stunden */
 export const LOCK_DURATION_MS = 24 * 60 * 60 * 1000
 
+/** Mindestanzahl verfügbarer Personen, damit gedreht werden kann – bei nur einer stünde das Ergebnis fest */
+export const MIN_AVAILABLE_TO_SPIN = 2
+
 export function isLocked(person: Person, now: number): boolean {
   return person.lockedUntil !== null && person.lockedUntil > now
 }

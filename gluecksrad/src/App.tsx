@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import type { FormEvent } from 'react'
 import { Wheel } from './Wheel'
 import { Celebration } from './Celebration'
-import { LOCK_DURATION_MS, isLocked } from './types'
+import { LOCK_DURATION_MS, MIN_AVAILABLE_TO_SPIN, isLocked } from './types'
 import type { Person } from './types'
 import { loadPersons, savePersons } from './storage'
 import { randomIndex, secureRandom } from './random'
@@ -187,7 +187,7 @@ export default function App() {
     const current = Date.now()
     setNow(current)
     const pool = persons.filter((p) => !isLocked(p, current))
-    if (spinning || pool.length === 0) return
+    if (spinning || pool.length < MIN_AVAILABLE_TO_SPIN) return
 
     const picked = pool[randomIndex(pool.length)]
     const index = persons.findIndex((p) => p.id === picked.id)
@@ -228,6 +228,7 @@ export default function App() {
 
   const closeCelebration = useCallback(() => setCelebrating(false), [])
 
+  const canSpin = available.length >= MIN_AVAILABLE_TO_SPIN
   const allLocked = persons.length > 0 && available.length === 0
   const nextUnlock = allLocked
     ? Math.min(...persons.map((p) => p.lockedUntil ?? Infinity))
@@ -262,7 +263,7 @@ export default function App() {
           <button
             className="spin-button"
             onClick={spin}
-            disabled={spinning || available.length === 0}
+            disabled={spinning || !canSpin}
           >
             {spinning ? 'Dreht …' : 'Rad drehen'}
           </button>
@@ -275,8 +276,17 @@ export default function App() {
               </>
             )}
             {!winner && persons.length === 0 && <span className="hint">Trage zuerst Namen ein.</span>}
-            {!winner && allLocked && nextUnlock !== null && (
-              <span className="hint">
+            {!spinning && persons.length === 1 && (
+              <span className="hint locked-hint">Trage mindestens 2 Namen ein, damit gelost werden kann.</span>
+            )}
+            {!spinning && persons.length > 1 && available.length === 1 && (
+              <span className="hint locked-hint">
+                Nur noch „{available[0].name}“ ist verfügbar. Zum Drehen müssen mindestens 2 Personen verfügbar sein –
+                hebe in der Statistik eine Sperre auf.
+              </span>
+            )}
+            {allLocked && nextUnlock !== null && !spinning && (
+              <span className="hint locked-hint">
                 Alle Personen sind gesperrt. Die nächste Person ist in {formatRemaining(nextUnlock - now)} wieder
                 verfügbar, oder du hebst eine Sperre in der Statistik auf.
               </span>

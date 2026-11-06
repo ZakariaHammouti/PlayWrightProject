@@ -429,3 +429,8 @@ button.sound-toggle {
   font-size: 0.85rem;
   white-space: normal;
 }
+
+.locked-hint {
+  margin-top: 8px;
+  max-width: 420px;
+}
